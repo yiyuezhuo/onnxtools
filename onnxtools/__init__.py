@@ -159,3 +159,5 @@ def get_namespace_name(s):
     return "/".join(sl[::-1])
 
 
+def remove_input_head(model):
+    model.graph.input.remove(model.graph.input[0])

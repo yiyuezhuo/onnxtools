@@ -8,6 +8,11 @@ Add some preprocess and post process logic into a ONNX model exported from PyTor
 
 ```python
 
+import onnx
+from onnx import TensorProto
+
+from onnxtools import remove_input_head, namespace, env, node, input, output
+
 model = onnx.load("resnet18.onnx")
 
 remove_input_head(model)
@@ -42,6 +47,7 @@ Try it:
 import torch
 from torchvision import transforms
 from PIL import Image
+import numpy as np
 
 resize_size, crop_size = 256, 224
 
@@ -69,6 +75,11 @@ def postprocess(output):
     probs = F.softmax(output, dim=1)
     return indices, probs[torch.arange(len(indices)), indices]
 
+import onnxruntime as ort
+
+session_tool = ort.InferenceSession("resnet18_tool.onnx")
+session_org = ort.InferenceSession("resnet18.onnx")
+
 hp = Image.open("hp.jpg")
 batch = preprocess([hp, hp])
 batch_py = batch.numpy()
@@ -90,6 +101,7 @@ output_tool = session_tool.run(None, {"input_img_seq": batch_tool})
  array([917, 917], dtype=int64),
  array([0.94007367, 0.94007367], dtype=float32)]
 """
+
 ```
 
 ## References
