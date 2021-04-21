@@ -101,8 +101,75 @@ output_tool = session_tool.run(None, {"input_img_seq": batch_tool})
  array([917, 917], dtype=int64),
  array([0.94007367, 0.94007367], dtype=float32)]
 """
+```
+
+Show what exactly will be added to graph:
+
+```python
+with env(debug=True):
+    input("input_img_seq", TensorProto.UINT8, shape=["batch_size", 224, 224, 3])
+
+"""
+node:
+[]
+initializer:
+[]
+input:
+[name: "input_img_seq"
+type {
+  tensor_type {
+    elem_type: 2
+    shape {
+      dim {
+        dim_param: "batch_size"
+      }
+      dim {
+        dim_value: 224
+      }
+      dim {
+        dim_value: 224
+      }
+      dim {
+        dim_value: 3
+      }
+    }
+  }
+}
+]
+output:
+[]
+"""
+```
+
+Here, input `input_img_seq` will be added to `model.graph.input`. `node` and `output` follow same pattern and initializer is a side-effect of constant value on node.
+`append=False` will insert `node` to `index=0` by inverse order.
+
+Create a new ONNX model to do NMS for output of [UltraFace](https://github.com/onnx/models/tree/master/vision/body_analysis/ultraface):
 
 ```
+model_nms = onnx.helper.make_model(
+    onnx.helper.make_graph(
+        [],
+        'nms-model',
+        [],
+        [],
+    ),
+    producer_name='onnx-tools'
+)
+
+with env(model_nms):
+    input("boxes", TensorProto.FLOAT, shape=["batch_size", "spatial_dimension", 4])
+    input("scores", TensorProto.FLOAT, shape=["batch_size", "spatial_dimension", "num_classes"])
+    
+    node('Transpose', ['scores'], ['scores_transposed'], perm=[0, 2, 1])
+    node("NonMaxSuppression", ['boxes', 'scores_transposed', 200, 0.5, 0.7], ['selected_indices'], center_point_box=1)
+    
+    output("selected_indices", TensorProto.INT64, shape=["num_selected_indices", 3])
+
+```
+
+While it is possible to add NMS op to existing model for better performance, NMS requires OP set from 10 to 11, thus considering many existing models still use lower version and version converter tool has many bugs like [this](https://github.com/onnx/onnx/issues/2873), it may be desired to create a separated ONNX model to do the task. 
+
 
 ## References
 
